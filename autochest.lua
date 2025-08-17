@@ -1,165 +1,80 @@
--- 🌲 99 Nights in the Forest - Auto Diamond Chest + Chest Checker + Serverhop + GUI Notify
-local Http = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
+-- Auto Chest + Auto Ambil Diamond + Auto Hoop
+-- Game: 99 Nights in the Forest
+
+-- Variabel
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local PlaceID = game.PlaceId
-local AllIDs = {}
-local foundAnything = ""
-local ScreenGui, TextLabel
-local ChestCount = 0
+local TeleportService = game:GetService("TeleportService")
+local player = Players.LocalPlayer
+local diamondCount = 0
+local checking = false
 
-------------------------------
--- Buat GUI Notifikasi
-------------------------------
-function CreateNotifyGui()
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+-- ID server tujuan (server game, bukan lobby)
+local SERVER_GAME_PLACEID = 1234567890 -- ganti ke PlaceId server game
 
-    TextLabel = Instance.new("TextLabel")
-    TextLabel.Size = UDim2.new(0, 350, 0, 50)
-    TextLabel.Position = UDim2.new(0.5, -175, 0.9, 0)
-    TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    TextLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    TextLabel.TextScaled = true
-    TextLabel.Text = ""
-    TextLabel.Visible = false
-    TextLabel.Parent = ScreenGui
-end
-
-function Notify(msg)
-    game.StarterGui:SetCore("ChatMakeSystemMessage", {
-        Text = "[AutoFarm] " .. msg,
-        Color = Color3.fromRGB(0,255,0)
-    })
-
-    if TextLabel then
-        TextLabel.Text = msg
-        TextLabel.Visible = true
-        task.wait(2.5)
-        TextLabel.Visible = false
+-- Fungsi buka chest
+local function bukaChest(chest)
+    local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if prompt then
+        fireproximityprompt(prompt)
+        print("🔓 Chest dibuka:", chest.Name)
     end
 end
 
-------------------------------
--- Fungsi buka chest (helper)
-------------------------------
-local function OpenChest(chest)
-    for _, v in pairs(chest:GetDescendants()) do
-        if v:IsA("ClickDetector") then
-            fireclickdetector(v)
-            return true
-        elseif v:IsA("ProximityPrompt") then
-            fireproximityprompt(v)
-            return true
-        end
+-- Fungsi ambil diamond drop
+local function ambilDrop(drop)
+    local prompt = drop:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if prompt then
+        fireproximityprompt(prompt)
+        diamondCount += 1
+        print("💎 Diamond berhasil diambil! Total:", diamondCount)
     end
-    return false
 end
 
-------------------------------
--- Fungsi cek diamond dalam chest
-------------------------------
-local function ChestHasDiamond(chest)
-    for _, v in pairs(chest:GetDescendants()) do
-        if v:IsA("MeshPart") or v:IsA("Part") then
-            if string.find(v.Name:lower(), "diamond") then
-                return true
-            end
-        end
+-- Listener: kalau ada diamond baru muncul di workspace
+workspace.ChildAdded:Connect(function(obj)
+    if obj.Name == "Diamond" then
+        task.wait(0.3) -- kasih waktu biar bisa dipickup
+        ambilDrop(obj)
     end
-    return false
-end
+end)
 
-------------------------------
--- Auto Farm Chest Diamond
-------------------------------
-function FarmChests()
-    local foundDiamond = false
+-- Cek semua chest yang ada
+local function checkAllChests()
+    checking = true
+    local adaDiamondChest = false
 
-    -- 🔹 Prioritas Diamond Chest
     for _, chest in pairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and string.find(chest.Name:lower(), "diamond") then
-            LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position)
-            task.wait(2)
-            if OpenChest(chest) then
-                ChestCount += 1
-                foundDiamond = true
-                Notify("💎 Diamond Chest dibuka! Total: " .. ChestCount)
+        if chest:IsA("Model") and chest.Name:lower():find("chest") then
+            bukaChest(chest)
+            if chest.Name == "DiamondChest" then
+                adaDiamondChest = true
             end
         end
     end
 
-    -- 🔹 Kalau tidak ada Diamond Chest → cek chest biasa
-    if not foundDiamond then
-        for _, chest in pairs(workspace:GetDescendants()) do
-            if chest:IsA("Model") and string.find(chest.Name:lower(), "chest") 
-                and not string.find(chest.Name:lower(), "diamond") then
+    task.wait(5) -- tunggu semua drop keluar
 
-                if ChestHasDiamond(chest) then
-                    LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position)
-                    task.wait(2)
-                    if OpenChest(chest) then
-                        ChestCount += 1
-                        foundDiamond = true
-                        Notify("✨ Chest biasa berisi diamond dibuka! Total: " .. ChestCount)
-                    end
-                end
-            end
+    -- Kalau sudah buka semua chest, cek apakah ada diamond
+    local adaDiamond = false
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name == "Diamond" then
+            adaDiamond = true
         end
     end
 
-    -- 🔹 Kalau sama sekali tidak ada diamond → hop
-    if not foundDiamond then
-        Notify("❌ Tidak ada diamond → Pindah server...")
-    end
-
-    return foundDiamond
-end
-
-------------------------------
--- ServerHop
-------------------------------
-function TPReturner()
-    local Site
-    if foundAnything == "" then
-        Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
+    if not adaDiamond and not adaDiamondChest then
+        print("🚪 Tidak ada Diamond, teleport ke server game...")
+        TeleportService:Teleport(SERVER_GAME_PLACEID, player)
     else
-        Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything)
+        print("✅ Diamond masih ada atau chest diamond ditemukan.")
     end
-    local Servers = Http:JSONDecode(Site)
-    if Servers.data then
-        for i,v in pairs(Servers.data) do
-            local Possible = true
-            if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
-                for _,Existing in pairs(AllIDs) do
-                    if v.id == tostring(Existing) then
-                        Possible = false
-                    end
-                end
-                if Possible then
-                    table.insert(AllIDs, v.id)
-                    Notify("🔄 Teleport ke server baru...")
-                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                    task.wait(4)
-                end
-            end
-        end
-    end
-    if Servers.nextPageCursor then
-        foundAnything = Servers.nextPageCursor
-    end
+
+    checking = false
 end
 
-------------------------------
--- MAIN LOOP
-------------------------------
-CreateNotifyGui()
-
-while task.wait(5) do
-    local success = FarmChests()
-    task.wait(3)
-    if not success then
-        TPReturner()
+-- Loop auto check
+while task.wait(10) do
+    if not checking then
+        checkAllChests()
     end
 end
