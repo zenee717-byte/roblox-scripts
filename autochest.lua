@@ -161,7 +161,7 @@ local function FarmChests()
 end
 
 ------------------------------
--- ServerHop dengan retry jika server full
+-- ServerHop dengan retry aman
 ------------------------------
 local function TPReturner()
     while true do
@@ -173,11 +173,11 @@ local function TPReturner()
         end
 
         local Servers = Http:JSONDecode(Site)
-        local teleported = false
+        local foundServer = false
 
         if Servers.data then
             for _, v in pairs(Servers.data) do
-                -- Cek apakah server penuh
+                -- Cek server valid sebelum teleport
                 if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
                     local already = false
                     for _, existing in pairs(AllIDs) do
@@ -189,30 +189,32 @@ local function TPReturner()
                     if not already then
                         table.insert(AllIDs, v.id)
                         Notify("🔄 Mencoba teleport ke server baru: "..v.id)
-                        -- Teleport
+                        -- teleport aman, server sudah pasti tidak penuh
                         local success, err = pcall(function()
                             TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
                         end)
                         if success then
-                            teleported = true
+                            foundServer = true
                             return -- berhenti script lokal karena teleport jalan
                         else
                             Notify("❌ Gagal teleport: "..err.." → mencoba server lain...")
                         end
                     end
                 else
-                    Notify("⚠️ Server "..v.id.." penuh → mencoba server lain...")
+                    Notify("⚠️ Server "..v.id.." penuh atau sama dengan server sekarang, mencari server lain...")
                 end
             end
         end
 
+        -- Next page
         if Servers.nextPageCursor then
             foundAnything = Servers.nextPageCursor
         else
             foundAnything = ""
         end
 
-        if not teleported then
+        -- Jika tidak ada server valid, tunggu 2 detik dan refresh list
+        if not foundServer then
             Notify("⚠️ Semua server penuh atau sudah dikunjungi, tunggu 2 detik dan coba lagi...")
             task.wait(2)
         else
