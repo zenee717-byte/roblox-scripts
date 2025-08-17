@@ -1,4 +1,4 @@
--- 🌲 99 Nights in the Forest - Auto Chest Farm + Serverhop + Notifikasi + Counter
+-- 🌲 99 Nights in the Forest - Auto Farm Diamond Chest Only + Serverhop + Notifikasi + Counter
 local Http = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local PlaceID = game.PlaceId
 local AllIDs = {}
 local foundAnything = ""
 local ScreenGui, TextLabel
-local ChestCount = 0 -- 🔢 Counter chest
+local ChestCount = 0 -- 🔢 Counter Diamond chest
 
 ------------------------------
 -- Buat GUI Notifikasi --
@@ -44,31 +44,34 @@ function Notify(msg)
 end
 
 ------------------------------
--- Fungsi Auto Ambil Chest --
+-- Fungsi Auto Ambil Diamond Chest --
 ------------------------------
-function FarmChests()
+function FarmDiamondChests()
     local found = false
     for i, chest in pairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and string.find(chest.Name:lower(), "chest") then
+        -- Hanya buka chest yang ada kata "diamond"
+        if chest:IsA("Model") and string.find(chest.Name:lower(), "diamond") then
             found = true
-            LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position)
-            task.wait(2)
+            if chest.PrimaryPart then
+                LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position)
+                task.wait(2)
+            end
             for _, v in pairs(chest:GetDescendants()) do
                 if v:IsA("ClickDetector") then
                     fireclickdetector(v)
                     ChestCount += 1
-                    Notify("Chest berhasil dibuka! 🎉 Total: " .. ChestCount)
+                    Notify("💎 Diamond Chest dibuka! Total: " .. ChestCount)
                 end
                 if v:IsA("ProximityPrompt") then
                     fireproximityprompt(v)
                     ChestCount += 1
-                    Notify("Chest berhasil dibuka! 🎉 Total: " .. ChestCount)
+                    Notify("💎 Diamond Chest dibuka! Total: " .. ChestCount)
                 end
             end
         end
     end
     if not found then
-        Notify("Chest habis → Pindah server...")
+        Notify("💨 Tidak ada Diamond Chest → Pindah server...")
     end
 end
 
@@ -94,7 +97,7 @@ function TPReturner()
                 end
                 if Possible then
                     table.insert(AllIDs, v.id)
-                    Notify("Teleport ke server baru...")
+                    Notify("🔄 Teleport ke server baru...")
                     TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
                     task.wait(4)
                 end
@@ -112,7 +115,7 @@ end
 CreateNotifyGui()
 
 while task.wait(5) do
-    FarmChests()
+    FarmDiamondChests()
     task.wait(3)
     TPReturner()
 end
