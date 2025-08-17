@@ -1,4 +1,4 @@
--- Auto Diamond Chest Collector + UI for 99 Nights in the Forest
+-- Auto Diamond Chest Farm + Debug (99 Nights in the Forest)
 
 -- UI
 local ScreenGui = Instance.new("ScreenGui")
@@ -30,62 +30,47 @@ Counter.TextScaled = true
 Counter.Parent = Frame
 
 -- Variabel
+local DiamondsCollected = 0
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local TeleportService = game:GetService("TeleportService")
+local HRP = LocalPlayer.Character and LocalPlayer.Character:WaitForChild("HumanoidRootPart")
 
--- ambil diamonds dari leaderstats (kalau ada)
-local function GetDiamonds()
-    local stats = LocalPlayer:FindFirstChild("leaderstats")
-    if stats and stats:FindFirstChild("Diamonds") then
-        return stats.Diamonds.Value
-    end
-    return 0
-end
-
--- Update UI
 local function UpdateUI()
-    Counter.Text = tostring(GetDiamonds())
+    Counter.Text = tostring(DiamondsCollected)
 end
 
--- Auto buka diamond chest
-local function CollectDiamondChest()
-    local HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not HRP then return end
-
-    -- cari chest
-    for _,v in pairs(workspace:GetDescendants()) do
-        if v.Name:lower():find("diamond") and v:FindFirstChildOfClass("ProximityPrompt") then
-            -- teleport ke chest
-            HRP.CFrame = v.CFrame + Vector3.new(0,3,0)
-            task.wait(0.5)
-
-            -- paksa buka chest
-            local prompt = v:FindFirstChildOfClass("ProximityPrompt")
-            if prompt then
-                fireproximityprompt(prompt)
-            end
-        end
+-- Debug: Print semua chest yg punya ProximityPrompt
+for _, obj in pairs(workspace:GetDescendants()) do
+    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+    if prompt then
+        print("Found chest:", obj.Name, "| Path:", obj:GetFullName())
     end
 end
 
--- Auto Server Hop kalau sudah ambil chest
-local function ServerHop()
-    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
-end
-
--- Loop utama
+-- Auto buka chest
 task.spawn(function()
-    while task.wait(5) do
+    while task.wait(2) do
         pcall(function()
-            UpdateUI()
-            CollectDiamondChest()
+            HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if not HRP then return end
 
-            -- kalau diamonds nambah, pindah server
-            -- (bisa diganti sesuai logika kamu)
-            -- contoh: kalau chest udah ga ada
-            if not workspace:FindFirstChild("DiamondChest") then
-                ServerHop()
+            for _, obj in pairs(workspace:GetDescendants()) do
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                if prompt and (obj.Name:lower():find("chest") or obj.Parent.Name:lower():find("chest")) then
+                    -- Teleport ke chest
+                    if obj:IsA("BasePart") then
+                        HRP.CFrame = obj.CFrame + Vector3.new(0, 3, 0)
+                    elseif obj:IsA("Model") and obj.PrimaryPart then
+                        HRP.CFrame = obj.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                    end
+
+                    task.wait(0.5)
+                    fireproximityprompt(prompt)
+
+                    DiamondsCollected = DiamondsCollected + 1
+                    UpdateUI()
+                    task.wait(1)
+                end
             end
         end)
     end
