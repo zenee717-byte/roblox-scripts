@@ -161,7 +161,7 @@ local function FarmChests()
 end
 
 ------------------------------
--- ServerHop dengan retry
+-- ServerHop dengan retry jika server full
 ------------------------------
 local function TPReturner()
     while true do
@@ -177,6 +177,7 @@ local function TPReturner()
 
         if Servers.data then
             for _, v in pairs(Servers.data) do
+                -- Cek apakah server penuh
                 if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
                     local already = false
                     for _, existing in pairs(AllIDs) do
@@ -187,17 +188,20 @@ local function TPReturner()
                     end
                     if not already then
                         table.insert(AllIDs, v.id)
-                        Notify("🔄 Teleport ke server baru...")
+                        Notify("🔄 Mencoba teleport ke server baru: "..v.id)
+                        -- Teleport
                         local success, err = pcall(function()
                             TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
                         end)
                         if success then
                             teleported = true
-                            return -- berhenti script lokal karena teleport
+                            return -- berhenti script lokal karena teleport jalan
                         else
                             Notify("❌ Gagal teleport: "..err.." → mencoba server lain...")
                         end
                     end
+                else
+                    Notify("⚠️ Server "..v.id.." penuh → mencoba server lain...")
                 end
             end
         end
@@ -209,7 +213,7 @@ local function TPReturner()
         end
 
         if not teleported then
-            Notify("⚠️ Semua server penuh atau sudah dikunjungi, mencoba lagi...")
+            Notify("⚠️ Semua server penuh atau sudah dikunjungi, tunggu 2 detik dan coba lagi...")
             task.wait(2)
         else
             break
