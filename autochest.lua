@@ -1,6 +1,6 @@
--- Auto Diamond Collector + UI for 99 Nights in the Forest
+-- Auto Diamond Chest Collector + UI for 99 Nights in the Forest
 
--- Buat UI sederhana untuk menampilkan jumlah diamond
+-- UI
 local ScreenGui = Instance.new("ScreenGui")
 local Frame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -29,48 +29,64 @@ Counter.TextColor3 = Color3.fromRGB(255, 255, 255)
 Counter.TextScaled = true
 Counter.Parent = Frame
 
--- Counter diamond
-local DiamondsCollected = 0
+-- Variabel
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local HRP = LocalPlayer.Character and LocalPlayer.Character:WaitForChild("HumanoidRootPart")
+local TeleportService = game:GetService("TeleportService")
 
--- Update UI function
-local function UpdateUI()
-    Counter.Text = tostring(DiamondsCollected)
+-- ambil diamonds dari leaderstats (kalau ada)
+local function GetDiamonds()
+    local stats = LocalPlayer:FindFirstChild("leaderstats")
+    if stats and stats:FindFirstChild("Diamonds") then
+        return stats.Diamonds.Value
+    end
+    return 0
 end
 
--- Auto collect diamond
-task.spawn(function()
-    while task.wait(1) do
-        HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not HRP then continue end
+-- Update UI
+local function UpdateUI()
+    Counter.Text = tostring(GetDiamonds())
+end
 
-        for _,v in pairs(workspace:GetChildren()) do
-            if v:IsA("Tool") and v.Name == "Diamond" then
-                -- Teleport ke diamond
-                HRP.CFrame = v.Handle.CFrame + Vector3.new(0,3,0)
-                task.wait(0.3)
-                -- Ambil diamond
-                firetouchinterest(HRP, v.Handle, 0)
-                firetouchinterest(HRP, v.Handle, 1)
+-- Auto buka diamond chest
+local function CollectDiamondChest()
+    local HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not HRP then return end
 
-                DiamondsCollected = DiamondsCollected + 1
-                UpdateUI()
+    -- cari chest
+    for _,v in pairs(workspace:GetDescendants()) do
+        if v.Name:lower():find("diamond") and v:FindFirstChildOfClass("ProximityPrompt") then
+            -- teleport ke chest
+            HRP.CFrame = v.CFrame + Vector3.new(0,3,0)
+            task.wait(0.5)
+
+            -- paksa buka chest
+            local prompt = v:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then
+                fireproximityprompt(prompt)
             end
         end
     end
-end)
+end
 
--- Auto Hoop (misalnya ke tempat jual diamond)
+-- Auto Server Hop kalau sudah ambil chest
+local function ServerHop()
+    TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId)
+end
+
+-- Loop utama
 task.spawn(function()
     while task.wait(5) do
-        HRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if HRP then
-            local hoop = workspace:FindFirstChild("Hoop") -- ganti sesuai nama di game
-            if hoop and hoop:IsA("Part") then
-                HRP.CFrame = hoop.CFrame + Vector3.new(0,3,0)
+        pcall(function()
+            UpdateUI()
+            CollectDiamondChest()
+
+            -- kalau diamonds nambah, pindah server
+            -- (bisa diganti sesuai logika kamu)
+            -- contoh: kalau chest udah ga ada
+            if not workspace:FindFirstChild("DiamondChest") then
+                ServerHop()
             end
-        end
+        end)
     end
 end)
