@@ -53,15 +53,14 @@ end
 -- Fungsi Ambil Diamond
 ------------------------------
 local function PickupDiamond(diamond)
-    if not diamond then return end
+    if not diamond then return false end
+    local picked = false
 
     -- ProximityPrompt
     local prompt = diamond:FindFirstChildOfClass("ProximityPrompt")
     if prompt then
         fireproximityprompt(prompt)
-        DiamondCount += 1
-        Notify("💎 Diamond diambil! Total: " .. DiamondCount)
-        return
+        picked = true
     end
 
     -- TouchInterest
@@ -69,28 +68,26 @@ local function PickupDiamond(diamond)
     if touchPart then
         firetouchinterest(HRP, diamond, 0)
         firetouchinterest(HRP, diamond, 1)
-        DiamondCount += 1
-        Notify("💎 Diamond diambil! Total: " .. DiamondCount)
-        return
+        picked = true
     end
 
-    print("⚠️ Diamond ditemukan tapi tidak ada cara ambil (mungkin RemoteEvent).")
+    if picked then
+        DiamondCount += 1
+        Notify("💎 Diamond diambil! Total: " .. DiamondCount)
+    else
+        print("⚠️ Diamond ditemukan tapi tidak ada cara ambil (mungkin RemoteEvent).")
+    end
+
+    return picked
 end
 
--- Auto-collect diamond yang spawn baru
+-- Auto-collect diamond spawn baru
 game.Workspace.ChildAdded:Connect(function(child)
     if child.Name:lower():match("diamond") then
         task.wait(0.2)
         PickupDiamond(child)
     end
 end)
-
--- Auto-collect diamond yang sudah ada
-for _, child in ipairs(game.Workspace:GetChildren()) do
-    if child.Name:lower():match("diamond") then
-        PickupDiamond(child)
-    end
-end
 
 ------------------------------
 -- Fungsi buka chest
@@ -112,39 +109,55 @@ end
 -- Auto Farm Chest Diamond
 ------------------------------
 local function FarmChests()
-    local foundDiamond = false
+    local anyDiamondFound = false
 
-    -- Cek Diamond Chest
+    -- Ambil semua chest (diamond chest dulu, chest biasa nanti)
+    local chests = {}
     for _, chest in pairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and string.find(chest.Name:lower(), "diamond") and chest.PrimaryPart then
-            Character:MoveTo(chest.PrimaryPart.Position)
-            task.wait(1.5)
-            OpenChest(chest)
-            task.wait(1)
-            foundDiamond = true
-        end
-    end
-
-    -- Cek chest biasa kalau diamond chest tidak ada
-    if not foundDiamond then
-        for _, chest in pairs(workspace:GetDescendants()) do
-            if chest:IsA("Model") and string.find(chest.Name:lower(), "chest") 
-                and not string.find(chest.Name:lower(), "diamond") and chest.PrimaryPart then
-
-                Character:MoveTo(chest.PrimaryPart.Position)
-                task.wait(1.5)
-                OpenChest(chest)
-                task.wait(1)
-                foundDiamond = true
+        if chest:IsA("Model") and chest.PrimaryPart then
+            if string.find(chest.Name:lower(), "diamond") then
+                table.insert(chests, chest)
+            elseif string.find(chest.Name:lower(), "chest") then
+                table.insert(chests, chest)
             end
         end
     end
 
-    if not foundDiamond then
+    for _, chest in ipairs(chests) do
+        -- Pindah ke chest
+        Character:MoveTo(chest.PrimaryPart.Position)
+        task.wait(1.5)
+
+        -- Buka chest
+        local opened = OpenChest(chest)
+        task.wait(1)
+
+        -- Ambil semua diamond yang dekat chest
+        local pickedCount = 0
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Part") or obj:IsA("MeshPart") then
+                if obj.Name:lower():match("diamond") then
+                    if (Character and HRP) then
+                        Character:MoveTo(obj.Position)
+                        task.wait(0.3)
+                        if PickupDiamond(obj) then
+                            pickedCount += 1
+                        end
+                    end
+                end
+            end
+        end
+
+        if pickedCount > 0 then
+            anyDiamondFound = true
+        end
+    end
+
+    if not anyDiamondFound then
         Notify("❌ Tidak ada diamond → Pindah server...")
     end
 
-    return foundDiamond
+    return anyDiamondFound
 end
 
 ------------------------------
@@ -173,7 +186,7 @@ local function TPReturner()
                     table.insert(AllIDs, v.id)
                     Notify("🔄 Teleport ke server baru...")
                     TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                    return -- hentikan loop setelah teleport
+                    return
                 end
             end
         end
