@@ -1,4 +1,4 @@
--- 🌲 99 Nights in the Forest - Auto Farm Diamond Chest Only + Serverhop + Notifikasi + Counter
+-- 🌲 99 Nights in the Forest - Auto Diamond Chest Farm + Serverhop + Notifikasi + Counter
 local Http = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local PlaceID = game.PlaceId
 local AllIDs = {}
 local foundAnything = ""
 local ScreenGui, TextLabel
-local ChestCount = 0 -- 🔢 Counter Diamond chest
+local ChestCount = 0 -- 🔢 Counter chest
 
 ------------------------------
 -- Buat GUI Notifikasi --
@@ -49,21 +49,19 @@ end
 function FarmDiamondChests()
     local found = false
     for i, chest in pairs(workspace:GetDescendants()) do
-        -- Hanya buka chest yang ada kata "diamond"
         if chest:IsA("Model") and string.find(chest.Name:lower(), "diamond") then
             found = true
             if chest.PrimaryPart then
-                LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position)
-                task.wait(2)
+                LocalPlayer.Character:MoveTo(chest.PrimaryPart.Position + Vector3.new(0,3,0))
+                task.wait(1.5)
             end
             for _, v in pairs(chest:GetDescendants()) do
-                if v:IsA("ClickDetector") then
-                    fireclickdetector(v)
+                if v:IsA("ProximityPrompt") then
+                    fireproximityprompt(v, 1) -- tekan prompt
                     ChestCount += 1
                     Notify("💎 Diamond Chest dibuka! Total: " .. ChestCount)
-                end
-                if v:IsA("ProximityPrompt") then
-                    fireproximityprompt(v)
+                elseif v:IsA("ClickDetector") then
+                    fireclickdetector(v) -- kalau ada click detector
                     ChestCount += 1
                     Notify("💎 Diamond Chest dibuka! Total: " .. ChestCount)
                 end
@@ -71,7 +69,7 @@ function FarmDiamondChests()
         end
     end
     if not found then
-        Notify("💨 Tidak ada Diamond Chest → Pindah server...")
+        Notify("⚠️ Tidak ada Diamond Chest → Pindah server...")
     end
 end
 
