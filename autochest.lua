@@ -129,7 +129,7 @@ local function FarmChests()
         task.wait(1.5)
 
         -- Buka chest
-        local opened = OpenChest(chest)
+        OpenChest(chest)
         task.wait(1)
 
         -- Ambil semua diamond yang dekat chest
@@ -161,41 +161,59 @@ local function FarmChests()
 end
 
 ------------------------------
--- ServerHop
+-- ServerHop dengan retry
 ------------------------------
 local function TPReturner()
-    local Site
-    if foundAnything == "" then
-        Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
-    else
-        Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything)
-    end
+    while true do
+        local Site
+        if foundAnything == "" then
+            Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
+        else
+            Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything)
+        end
 
-    local Servers = Http:JSONDecode(Site)
-    if Servers.data then
-        for _, v in pairs(Servers.data) do
-            if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
-                local already = false
-                for _, existing in pairs(AllIDs) do
-                    if v.id == tostring(existing) then
-                        already = true
-                        break
+        local Servers = Http:JSONDecode(Site)
+        local teleported = false
+
+        if Servers.data then
+            for _, v in pairs(Servers.data) do
+                if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
+                    local already = false
+                    for _, existing in pairs(AllIDs) do
+                        if v.id == tostring(existing) then
+                            already = true
+                            break
+                        end
                     end
-                end
-                if not already then
-                    table.insert(AllIDs, v.id)
-                    Notify("🔄 Teleport ke server baru...")
-                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                    return
+                    if not already then
+                        table.insert(AllIDs, v.id)
+                        Notify("🔄 Teleport ke server baru...")
+                        local success, err = pcall(function()
+                            TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
+                        end)
+                        if success then
+                            teleported = true
+                            return -- berhenti script lokal karena teleport
+                        else
+                            Notify("❌ Gagal teleport: "..err.." → mencoba server lain...")
+                        end
+                    end
                 end
             end
         end
-    end
 
-    if Servers.nextPageCursor then
-        foundAnything = Servers.nextPageCursor
-    else
-        foundAnything = ""
+        if Servers.nextPageCursor then
+            foundAnything = Servers.nextPageCursor
+        else
+            foundAnything = ""
+        end
+
+        if not teleported then
+            Notify("⚠️ Semua server penuh atau sudah dikunjungi, mencoba lagi...")
+            task.wait(2)
+        else
+            break
+        end
     end
 end
 
