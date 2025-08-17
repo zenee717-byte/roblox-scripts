@@ -1,5 +1,5 @@
--- Auto Collect Diamonds + Auto Hop + Notification + UI Toggle
--- Untuk game 99 Nights in the Forest (version legal/custom)
+-- Auto Collect Diamonds + Auto Hop + Notification + Diamond Counter
+-- Game: 99 Nights in the Forest
 
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
@@ -11,7 +11,7 @@ local gui = Instance.new("ScreenGui", game:GetService("CoreGui"))
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 200, 0, 160)
+frame.Size = UDim2.new(0, 200, 0, 190)
 frame.Position = UDim2.new(0.05,0,0.2,0)
 frame.BackgroundColor3 = Color3.fromRGB(25,25,30)
 frame.Active = true
@@ -40,7 +40,7 @@ end
 local farmBtn = mkBtn("Auto Farm: ON", 40)
 local hopBtn  = mkBtn("Auto Hop: ON", 80)
 
--- Notification Label
+-- Notification
 local notif = Instance.new("TextLabel", frame)
 notif.Size = UDim2.new(1, -20, 0, 30)
 notif.Position = UDim2.new(0,10,0,120)
@@ -50,10 +50,21 @@ notif.Text = ""
 notif.Font = Enum.Font.SourceSans
 notif.TextSize = 16
 
+-- Diamond Counter
+local diamondCounter = Instance.new("TextLabel", frame)
+diamondCounter.Size = UDim2.new(1, -20, 0, 30)
+diamondCounter.Position = UDim2.new(0,10,0,150)
+diamondCounter.BackgroundTransparency = 1
+diamondCounter.TextColor3 = Color3.fromRGB(0,200,255)
+diamondCounter.Text = "Diamonds: 0"
+diamondCounter.Font = Enum.Font.SourceSansBold
+diamondCounter.TextSize = 16
+
 -- States
 local autoFarm = true
 local autoHop = true
 local lastCollect = os.clock()
+local diamondCount = 0
 
 farmBtn.MouseButton1Click:Connect(function()
     autoFarm = not autoFarm
@@ -87,7 +98,10 @@ task.spawn(function()
         if autoFarm then
             if collectDiamonds() then
                 lastCollect = os.clock()
+                diamondCount += 1
+                diamondCounter.Text = "Diamonds: " .. diamondCount
                 notif.Text = "Diamond collected!"
+                task.delay(2, function() notif.Text = "" end)
             end
         end
 
