@@ -59,11 +59,13 @@ local function OpenAllChests()
     for _, chest in pairs(workspace:GetDescendants()) do
         if chest:IsA("Model") and chest.Name:lower():find("chest") then
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local ppart = chest.PrimaryPart or chest:FindFirstChild("HumanoidRootPart") or chest:FindFirstChildWhichIsA("BasePart")
+            local ppart = chest.PrimaryPart or chest:FindFirstChild("ChestLid") or chest:FindFirstChildWhichIsA("BasePart")
             if prompt and ppart then
                 opened = true
-                HRP.CFrame = ppart.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.5)
+                -- ✅ Teleport ke depan chest, bukan di atas
+                local cf = ppart.CFrame * CFrame.new(0, 0, -3) -- 3 stud di depan chest
+                HRP.CFrame = cf + Vector3.new(0, 2, 0)
+                task.wait(0.4)
                 fireproximityprompt(prompt)
                 task.wait(1.2)
                 CollectDiamonds()
@@ -72,6 +74,7 @@ local function OpenAllChests()
     end
     return opened
 end
+
 
 -- 🔄 ServerHop (anti 771)
 local function ServerHop()
