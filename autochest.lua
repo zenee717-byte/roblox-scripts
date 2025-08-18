@@ -8,7 +8,7 @@ local HRP = Character:WaitForChild("HumanoidRootPart")
 
 local PlaceID = game.PlaceId
 
---// Buat ScreenGui scanner
+--// GUI Scanner
 local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 ScreenGui.Name = "DiamondScanner"
 
@@ -24,20 +24,20 @@ InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
 InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
 InfoLabel.Text = "Scanning..."
 
---// Function collect drop
+--// Fungsi ambil drops
 local function collectDrops()
     for _, v in pairs(workspace.Items:GetChildren()) do
         if v:IsA("Part") or v:IsA("MeshPart") then
             local n = v.Name:lower()
             if n:find("diamond") or n:find("gem") or n:find("emerald") then
                 HRP.CFrame = v.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.2)
+                task.wait(0.3)
             end
         end
     end
 end
 
---// Function buka chest
+--// Fungsi buka chest
 local function openChest(chest)
     if chest and chest:FindFirstChild("ChestLid") then
         HRP.CFrame = chest.ChestLid.CFrame + Vector3.new(0, 3, 0)
@@ -50,7 +50,7 @@ local function openChest(chest)
     end
 end
 
---// Function serverhop
+--// Fungsi serverhop
 local function serverHop()
     local servers = {}
     local req = game:HttpGet(string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100", PlaceID))
@@ -67,7 +67,7 @@ local function serverHop()
     end
 end
 
---// Update scanner UI
+--// Scanner update (UI list semua items)
 task.spawn(function()
     while task.wait(2) do
         local lines = {"[ SCANNER ] Found drops:"}
@@ -81,16 +81,21 @@ task.spawn(function()
     end
 end)
 
---// Main loop
-while task.wait(5) do
-    local foundChest = false
-    for _, v in pairs(workspace.Items:GetChildren()) do
-        if v.Name == "Item Chest" then
-            foundChest = true
-            openChest(v)
+--// Main loop cari chest
+task.spawn(function()
+    while task.wait(5) do
+        local foundChest = nil
+        for _, v in pairs(workspace.Items:GetChildren()) do
+            if v.Name == "Item Chest" then
+                foundChest = v
+                break
+            end
+        end
+
+        if foundChest then
+            openChest(foundChest)
+        else
+            serverHop()
         end
     end
-    if not foundChest then
-        serverHop()
-    end
-end
+end)
