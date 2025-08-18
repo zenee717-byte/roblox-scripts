@@ -164,7 +164,6 @@ local function TPReturner()
         end
 
         local Servers = Http:JSONDecode(Site)
-        local foundServer = false
 
         if Servers.data then
             for _, v in ipairs(Servers.data) do
@@ -179,14 +178,20 @@ local function TPReturner()
                     if not already then
                         table.insert(AllIDs, v.id)
                         Notify("🔄 Teleport ke server baru: "..v.id)
+
                         local success, err = pcall(function()
                             TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
                         end)
-                        if success then
-                            return
-                        else
-                            Notify("❌ Gagal teleport: "..err.." → mencoba server lain...")
-                        end
+
+                        -- fallback check jika teleport gagal
+                        task.delay(5, function()
+                            if LocalPlayer.Parent == Players then
+                                Notify("❌ Teleport gagal ke server "..v.id.." → coba server lain...")
+                                TPReturner()
+                            end
+                        end)
+
+                        return
                     end
                 end
             end
@@ -200,11 +205,22 @@ local function TPReturner()
             -- fallback teleport ke server random
             Notify("⚠️ Semua server penuh → teleport random...")
             TeleportService:Teleport(PlaceID, LocalPlayer)
+            return
         end
 
         task.wait(2)
     end
 end
+
+------------------------------
+-- Handle Teleport Gagal (Error 772)
+------------------------------
+TeleportService.TeleportInitFailed:Connect(function(player, result, errorMessage)
+    if player == LocalPlayer then
+        Notify("⚠️ Teleport gagal ("..tostring(result)..") → retry...")
+        task.delay(2, TPReturner)
+    end
+end)
 
 ------------------------------
 -- MAIN LOOP
