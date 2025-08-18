@@ -1,5 +1,5 @@
 --// Auto Diamond Farm 99 Nights in the Forest
---// by jen nnn (modded version)
+--// by jen nnn + optimize
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -20,42 +20,51 @@ local function Notify(txt)
     end)
 end
 
--- Ambil diamond di sekitar
+-- Ambil diamond drop di map
 local function CollectDiamonds()
+    local found = false
     for _, drop in pairs(workspace:GetDescendants()) do
-        if drop:IsA("Part") and drop.Name:lower():find("diamond") then
-            HRP.CFrame = drop.CFrame + Vector3.new(0, 3, 0)
-            local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
-            if prompt then
-                fireproximityprompt(prompt)
+        if drop:IsA("Part") or drop:IsA("MeshPart") then
+            if drop.Name:lower():find("diamond") then
+                found = true
+                Notify("💠 Ambil diamond...")
+                HRP.CFrame = drop.CFrame + Vector3.new(0, 3, 0)
+                local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
+                if prompt then
+                    fireproximityprompt(prompt)
+                end
+                task.wait(0.3)
             end
-            task.wait(0.2)
         end
     end
+    return found
 end
 
--- Cari & buka semua chest
+-- Buka semua chest di map
 local function OpenAllChests()
-    local chestFound = false
+    local opened = false
     for _, chest in pairs(workspace:GetDescendants()) do
         if chest:IsA("Model") and chest.Name:lower():find("chest") then
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local pivot = chest.PrimaryPart or chest:FindFirstChild("ChestLid")
-
-            if prompt and pivot then
-                chestFound = true
+            if prompt then
+                opened = true
+                Notify("📦 Buka chest...")
                 -- Teleport ke chest
-                HRP.CFrame = pivot.CFrame + Vector3.new(0, 3, 0)
+                if chest.PrimaryPart then
+                    HRP.CFrame = chest.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                else
+                    pcall(function()
+                        HRP.CFrame = chest:GetModelCFrame()
+                    end)
+                end
                 task.wait(0.5)
-                -- Buka
                 fireproximityprompt(prompt)
-                task.wait(1)
-                -- Ambil diamond setelah buka
+                task.wait(1.2)
                 CollectDiamonds()
             end
         end
     end
-    return chestFound
+    return opened
 end
 
 -- ServerHop fix anti 771
@@ -88,6 +97,7 @@ local function ServerHop()
         task.wait(2)
     end
 
+    -- Retry kalau gagal
     Notify("⚠️ Gagal cari server, retry...")
     task.wait(5)
     ServerHop()
@@ -96,11 +106,26 @@ end
 -- Main loop
 task.spawn(function()
     while task.wait(3) do
-        local found = OpenAllChests()
-        if not found then
-            ServerHop()
+        -- Step 1: cek diamond dulu
+        local gotDiamond = CollectDiamonds()
+        if gotDiamond then
+            Notify("✅ Diamond ditemukan!")
+        else
+            -- Step 2: kalau gak ada, buka semua chest
+            local opened = OpenAllChests()
+            task.wait(1)
+            local after = CollectDiamonds()
+            if not after then
+                if not opened then
+                    -- Step 3: kalau chest pun kosong → hop
+                    ServerHop()
+                else
+                    -- kalau sudah buka chest tapi tetep kosong → hop juga
+                    ServerHop()
+                end
+            end
         end
     end
 end)
 
-Notify("✅ Diamond Farm Aktif")
+Notify("🚀 Auto Diamond Farm Aktif")
