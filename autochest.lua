@@ -28,7 +28,7 @@ local function CollectDiamonds()
             if prompt and prompt.Enabled then
                 fireproximityprompt(prompt)
                 collected += 1
-                task.wait(0.15)
+                wait(0.2)
             end
         end
     end
@@ -42,10 +42,10 @@ local function OpenAllChests()
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
             if prompt and chest.PrimaryPart and prompt.Enabled then
                 HRP.CFrame = chest.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.2)
+                wait(0.2)
                 fireproximityprompt(prompt)
                 opened += 1
-                task.wait(0.4)
+                wait(0.4)
             end
         end
     end
@@ -75,10 +75,10 @@ local function ServerHop()
         else
             cursor = ""
         end
-        task.wait(1)
+        wait(1)
     end
     Notify("⚠️ Retry ServerHop...")
-    task.wait(3)
+    wait(3)
     ServerHop()
 end
 
@@ -87,7 +87,7 @@ task.spawn(function()
         local opened = OpenAllChests()
         if opened > 0 then
             Notify("🗝️ Chest dibuka: "..opened)
-            task.wait(2.5)
+            wait(2.5)
             local got = CollectDiamonds()
             if got > 0 then
                 Notify("✅ Dapat "..got.." Diamond!")
@@ -98,8 +98,8 @@ task.spawn(function()
             Notify("❌ Tidak ada chest ditemukan.")
         end
         ServerHop()
-        task.wait(2)
+        wait(2)
     end
 end)
 
-Notify("🚀 Fast Diamond Farm Aktif!")
+Notify("🚀 Fast Diamond
