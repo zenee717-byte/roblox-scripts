@@ -128,17 +128,19 @@ local function FarmChests()
         TeleportTo(chest.PrimaryPart.Position)
         task.wait(0.5)
         OpenChest(chest)
-        task.wait(0.5)
 
-        -- cari diamond dekat chest
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Name:lower():match("diamond") then
-                TeleportTo(obj.Position)
-                task.wait(0.2)
-                if PickupDiamond(obj) then
-                    anyDiamondFound = true
+        -- tunggu diamond spawn (cek 10x setiap 0.5s)
+        for i = 1, 10 do
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("BasePart") and obj.Name:lower():match("diamond") then
+                    TeleportTo(obj.Position)
+                    task.wait(0.2)
+                    if PickupDiamond(obj) then
+                        anyDiamondFound = true
+                    end
                 end
             end
+            task.wait(0.5)
         end
     end
 
@@ -198,7 +200,6 @@ local function TPReturner()
             -- fallback teleport ke server random
             Notify("⚠️ Semua server penuh → teleport random...")
             TeleportService:Teleport(PlaceID, LocalPlayer)
-            break
         end
 
         task.wait(2)
@@ -214,7 +215,6 @@ while task.wait(5) do
     local success = FarmChests()
     task.wait(2)
     if not success then
-        TPReturner()
-        break
+        TPReturner() -- tidak ada break, biar selalu lanjut
     end
 end
