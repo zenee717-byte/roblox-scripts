@@ -1,6 +1,4 @@
---// Auto Claim Diamond Only 99 Nights
--- by jen nnn + GitHub Copilot
-
+-- Auto Teleport & Claim Diamond 99 Night in the Forest
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -17,8 +15,8 @@ local function Notify(txt)
     end)
 end
 
--- Ambil diamond drop
-local function CollectDiamonds()
+-- Teleport dan ambil diamond
+local function TeleportAndCollectDiamonds()
     local collected = 0
     for _, drop in pairs(workspace:GetDescendants()) do
         if drop:IsA("Part") and drop.Name:lower():find("diamond") then
@@ -28,20 +26,20 @@ local function CollectDiamonds()
                 fireproximityprompt(prompt)
             end
             collected += 1
-            task.wait(0.1)
+            task.wait(0.2)
         end
     end
     return collected
 end
 
--- Main loop hanya claim diamond
+-- Main loop: teleport & claim diamond
 task.spawn(function()
     while task.wait(1) do
-        local got = CollectDiamonds()
+        local got = TeleportAndCollectDiamonds()
         if got > 0 then
             Notify("✅ Dapat "..got.." Diamond!")
         end
     end
 end)
 
-Notify("🚀 Auto Claim Diamond Aktif")
+Notify("🚀 Auto Teleport & Claim Diamond
