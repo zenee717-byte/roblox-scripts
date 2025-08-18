@@ -1,16 +1,40 @@
---// Auto Diamond Farm 99 Nights in the Forest
---// Efisien + Anti Respawn Stuck
---// by jen nnn & ChatGPT
+--// Fast Diamond Farm - 99 Nights in the Forest
+--// Aggressive Version + Diamond Counter UI
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Character
-local HRP
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local PlaceID = game.PlaceId
 
--- 🔔 Notifikasi helper
+-- === Diamond Counter ===
+local diamondCount = 0
+
+-- Buat UI ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DiamondCounterUI"
+ScreenGui.Parent = PlayerGui
+
+local CounterLabel = Instance.new("TextLabel")
+CounterLabel.Size = UDim2.new(0, 200, 0, 50)
+CounterLabel.Position = UDim2.new(0.5, -100, 0.05, 0)
+CounterLabel.BackgroundTransparency = 0.3
+CounterLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+CounterLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+CounterLabel.TextScaled = true
+CounterLabel.Font = Enum.Font.GothamBold
+CounterLabel.Text = "💎 Diamonds: 0"
+CounterLabel.Parent = ScreenGui
+
+-- Update Counter UI
+local function UpdateCounter()
+    CounterLabel.Text = "💎 Diamonds: " .. diamondCount
+end
+
+-- === Notif Helper ===
 local function Notify(txt)
     pcall(function()
         game.StarterGui:SetCore("SendNotification", {
@@ -21,66 +45,69 @@ local function Notify(txt)
     end)
 end
 
--- 🧍 Update character / respawn fix
+-- === Update Character saat mati ===
 local function UpdateChar()
     Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     HRP = Character:WaitForChild("HumanoidRootPart")
 end
-UpdateChar()
 
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     UpdateChar()
-    Notify("⚰️ Respawn terdeteksi, lanjut farm...")
+    Notify("⚰️ Respawn terdeteksi, lanjut farming...")
 end)
 
--- 💠 Ambil diamond di sekitar
+UpdateChar()
+
+-- === Ambil diamond drop di sekitar ===
 local function CollectDiamonds()
-    local found = false
     for _, drop in pairs(workspace:GetDescendants()) do
-        if drop:IsA("Part") or drop:IsA("MeshPart") then
-            if drop.Name:lower():find("diamond") then
-                found = true
-                HRP.CFrame = drop.CFrame + Vector3.new(0, 3, 0)
-                local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
-                if prompt then
-                    fireproximityprompt(prompt)
-                end
-                task.wait(0.3)
+        if drop:IsA("Part") and drop.Name:lower():find("diamond") then
+            HRP.CFrame = drop.CFrame + Vector3.new(0, 3, 0)
+            task.wait(0.2)
+            local prox = drop:FindFirstChildOfClass("ProximityPrompt")
+            if prox then
+                fireproximityprompt(prox)
+                diamondCount += 1
+                UpdateCounter()
+                Notify("✅ Dapat diamond! Total: " .. diamondCount)
             end
+            task.wait(0.3)
         end
     end
-    return found
 end
 
--- 📦 Buka semua chest
-local function OpenAllChests()
-    local opened = false
+-- === Cari chest & buka ===
+local function OpenChests()
     for _, chest in pairs(workspace:GetDescendants()) do
         if chest:IsA("Model") and chest.Name:lower():find("chest") then
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            local ppart = chest.PrimaryPart or chest:FindFirstChild("ChestLid") or chest:FindFirstChildWhichIsA("BasePart")
-            if prompt and ppart then
-                opened = true
-                -- ✅ Teleport ke depan chest, bukan di atas
-                local cf = ppart.CFrame * CFrame.new(0, 0, -3) -- 3 stud di depan chest
-                HRP.CFrame = cf + Vector3.new(0, 2, 0)
-                task.wait(0.4)
-                fireproximityprompt(prompt)
-                task.wait(1.2)
-                CollectDiamonds()
+            if prompt then
+                if prompt.Enabled then
+                    -- ✅ Bisa dibuka
+                    HRP.CFrame = chest.PrimaryPart and chest.PrimaryPart.CFrame + Vector3.new(0, 3, 0) or chest:GetModelCFrame()
+                    task.wait(0.3)
+                    fireproximityprompt(prompt)
+                    task.wait(0.8)
+                    CollectDiamonds()
+                    return true
+                else
+                    -- ❌ Chest ada tapi terkunci (Stronghold belum selesai)
+                    return false
+                end
             end
         end
     end
-    return opened
+    return nil -- tidak ada chest sama sekali
 end
 
-
--- 🔄 ServerHop (anti 771)
+-- === ServerHop ===
 local function ServerHop()
-    Notify("🔄 Cari server lain...")
+    Notify("🔄 ServerHop...")
     local cursor = ""
-    while true do
+    local success = false
+
+    for _ = 1, 5 do
         local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100%s")
             :format(PlaceID, cursor ~= "" and "&cursor="..cursor or "")
 
@@ -89,39 +116,41 @@ local function ServerHop()
         end)
 
         if ok and result and result.data then
-            for _, v in pairs(result.data) do
+            for _, v in ipairs(result.data) do
                 if v.playing < v.maxPlayers and v.id ~= game.JobId then
                     Notify("➡️ Pindah server...")
                     TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                    return
+                    success = true
+                    break
                 end
             end
+            if success then break end
             cursor = result.nextPageCursor or ""
-            if cursor == "" then break end
         else
-            break
+            cursor = ""
         end
-        task.wait(2)
+        task.wait(1)
     end
-    Notify("⚠️ Tidak ada server, retry 5s...")
-    task.wait(5)
-    ServerHop()
+
+    if not success then
+        Notify("⚠️ Gagal cari server, retry 5 detik...")
+        task.wait(5)
+        ServerHop()
+    end
 end
 
--- 🔁 Main loop
+-- === Main Loop ===
 task.spawn(function()
-    while task.wait(2) do
-        if CollectDiamonds() then
-            -- kalau udah nemu diamond, tunggu bentar sebelum scan lagi
-            task.wait(3)
-        elseif OpenAllChests() then
-            -- setelah buka chest, coba ambil diamond lagi
-            task.wait(3)
-        else
-            -- kalau tidak ada diamond & chest, hop server
+    while task.wait(0.5) do
+        local chestStatus = OpenChests()
+        if chestStatus == false then
+            -- chest ada tapi terkunci
+            ServerHop()
+        elseif chestStatus == nil then
+            -- tidak ada chest sama sekali
             ServerHop()
         end
     end
 end)
 
-Notify("✅ Diamond Farm Aktif")
+Notify("✅ Fast Diamond Farm Aktif dengan Counter")
