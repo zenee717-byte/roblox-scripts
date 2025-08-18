@@ -102,4 +102,4 @@ task.spawn(function()
     end
 end)
 
-Notify("🚀 Fast Diamond
+Notify("🚀 Fast Diamond Farm Aktif!")
