@@ -1,4 +1,6 @@
--- // Services
+-- // Auto Chest + Server Hop Fix
+-- By ChatGPT, sudah diperbaiki bug teleport & chest stuck
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -7,214 +9,95 @@ local Http = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceID = game.PlaceId
 
--- // Variables
-local ScreenGui, TextLabel
-local DiamondCount = 0
-local AllIDs = {}
-local foundAnything = ""
-
-------------------------------
--- GUI Notify
-------------------------------
-local function CreateNotifyGui()
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-
-    TextLabel = Instance.new("TextLabel")
-    TextLabel.Size = UDim2.new(0, 350, 0, 50)
-    TextLabel.Position = UDim2.new(0.5, -175, 0.9, 0)
-    TextLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    TextLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-    TextLabel.TextScaled = true
-    TextLabel.Text = ""
-    TextLabel.Visible = false
-    TextLabel.Parent = ScreenGui
-end
-
+---------------------------------------------------------------------
+-- 🟢 Notifier
 local function Notify(msg)
-    pcall(function()
-        game.StarterGui:SetCore("ChatMakeSystemMessage", {
-            Text = "[AutoFarm] " .. msg,
-            Color = Color3.fromRGB(0,255,0)
-        })
-    end)
-
-    if TextLabel then
-        coroutine.wrap(function()
-            TextLabel.Text = msg
-            TextLabel.Visible = true
-            task.wait(2.5)
-            TextLabel.Visible = false
-        end)()
-    end
+    print("[NOTIFY] " .. msg)
 end
 
-------------------------------
--- Fungsi Teleport Cepat
-------------------------------
+---------------------------------------------------------------------
+-- 🟢 Teleport Helper
 local function TeleportTo(pos)
     if HRP then
-        HRP.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+        HRP.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
     end
 end
 
-------------------------------
--- Fungsi Ambil Diamond
-------------------------------
-local function PickupDiamond(diamond)
-    if not diamond then return false end
-    local picked = false
-
-    for _, v in ipairs(diamond:GetDescendants()) do
-        if v:IsA("ProximityPrompt") then
-            fireproximityprompt(v)
-            picked = true
-        elseif v:IsA("ClickDetector") then
-            fireclickdetector(v)
-            picked = true
-        elseif v:IsA("TouchTransmitter") then
-            firetouchinterest(HRP, diamond, 0)
-            firetouchinterest(HRP, diamond, 1)
-            picked = true
-        end
-    end
-
-    if picked then
-        DiamondCount += 1
-        Notify("💎 Diamond diambil! Total: " .. DiamondCount)
-    end
-
-    return picked
-end
-
--- Auto-collect diamond spawn baru
-workspace.DescendantAdded:Connect(function(obj)
-    if obj.Name:lower():match("diamond") then
-        task.wait(0.2)
-        PickupDiamond(obj)
-    end
-end)
-
-------------------------------
--- Fungsi buka chest
-------------------------------
+---------------------------------------------------------------------
+-- 🟢 Open Chest Fix
 local function OpenChest(chest)
-    for _, v in ipairs(chest:GetDescendants()) do
-        if v:IsA("ClickDetector") then
-            fireclickdetector(v)
-            return true
-        elseif v:IsA("ProximityPrompt") then
-            fireproximityprompt(v)
-            return true
-        end
-    end
-    return false
-end
+    if not chest or not chest.PrimaryPart then return false end
+    local opened = false
 
-------------------------------
--- Auto Farm Chest Diamond
-------------------------------
-local function FarmChests()
-    local anyDiamondFound = false
-    local chests = {}
+    -- geser sedikit biar tombol E muncul
+    TeleportTo(chest.PrimaryPart.Position + chest.PrimaryPart.CFrame.LookVector * 2)
 
-    for _, chest in ipairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and chest.PrimaryPart and chest.Name:lower():match("chest") then
-            table.insert(chests, chest)
-        end
-    end
-
-    for _, chest in ipairs(chests) do
-        TeleportTo(chest.PrimaryPart.Position)
-        task.wait(0.5)
-        OpenChest(chest)
-
-        -- tunggu diamond spawn (cek 10x setiap 0.5s)
-        for i = 1, 10 do
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and obj.Name:lower():match("diamond") then
-                    TeleportTo(obj.Position)
+    for i = 1, 15 do -- coba max 15x
+        for _, v in ipairs(chest:GetDescendants()) do
+            if v:IsA("ProximityPrompt") and v.ActionText:lower():find("open") then
+                if v.Enabled then
+                    fireproximityprompt(v, 1)
                     task.wait(0.2)
-                    if PickupDiamond(obj) then
-                        anyDiamondFound = true
-                    end
+                    fireproximityprompt(v, 0)
+                    opened = true
+                    Notify("📦 Chest dibuka!")
+                    return true
                 end
+            elseif v:IsA("ClickDetector") then
+                fireclickdetector(v)
+                opened = true
+                Notify("📦 Chest dibuka (ClickDetector)!")
+                return true
             end
-            task.wait(0.5)
         end
+        task.wait(0.3)
     end
 
-    if not anyDiamondFound then
-        Notify("❌ Tidak ada diamond → Pindah server...")
-    end
-
-    return anyDiamondFound
+    return opened
 end
 
-------------------------------
--- ServerHop dengan retry aman
-------------------------------
+---------------------------------------------------------------------
+-- 🟢 Ambil Drop (Diamond / Item)
+local function CollectDrops()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("TouchTransmitter") and obj.Parent then
+            firetouchinterest(HRP, obj.Parent, 0)
+            firetouchinterest(HRP, obj.Parent, 1)
+        end
+    end
+end
+
+---------------------------------------------------------------------
+-- 🟢 Server Hop
 local function TPReturner()
-    while true do
-        local Site
-        if foundAnything == "" then
-            Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100")
-        else
-            Site = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything)
-        end
+    local servers = {}
+    local req = syn and syn.request or http_request or request
+    local body = game:HttpGet("https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100")
+    local data = Http:JSONDecode(body)
 
-        local Servers = Http:JSONDecode(Site)
+    for _, v in ipairs(data.data) do
+        if v.playing < v.maxPlayers and v.id ~= game.JobId then
+            Notify("🔄 Teleport ke server "..v.id)
+            local success = pcall(function()
+                TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
+            end)
 
-        if Servers.data then
-            for _, v in ipairs(Servers.data) do
-                if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
-                    local already = false
-                    for _, existing in ipairs(AllIDs) do
-                        if v.id == tostring(existing) then
-                            already = true
-                            break
-                        end
-                    end
-                    if not already then
-                        table.insert(AllIDs, v.id)
-                        Notify("🔄 Teleport ke server baru: "..v.id)
-
-                        local success, err = pcall(function()
-                            TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                        end)
-
-                        -- fallback check jika teleport gagal
-                        task.delay(5, function()
-                            if LocalPlayer.Parent == Players then
-                                Notify("❌ Teleport gagal ke server "..v.id.." → coba server lain...")
-                                TPReturner()
-                            end
-                        end)
-
-                        return
-                    end
+            -- fallback: cek setelah 5 detik
+            task.delay(5, function()
+                if LocalPlayer.Parent == Players then
+                    Notify("❌ Teleport gagal → coba server lain")
+                    TPReturner()
                 end
-            end
-        end
-
-        -- Next page
-        if Servers.nextPageCursor then
-            foundAnything = Servers.nextPageCursor
-        else
-            foundAnything = ""
-            -- fallback teleport ke server random
-            Notify("⚠️ Semua server penuh → teleport random...")
-            TeleportService:Teleport(PlaceID, LocalPlayer)
+            end)
             return
         end
-
-        task.wait(2)
     end
+
+    Notify("⚠️ Tidak ada server yang kosong, retry 5 detik...")
+    task.delay(5, TPReturner)
 end
 
-------------------------------
--- Handle Teleport Gagal (Error 772)
-------------------------------
+-- Event kalau teleport gagal (772, dsb)
 TeleportService.TeleportInitFailed:Connect(function(player, result, errorMessage)
     if player == LocalPlayer then
         Notify("⚠️ Teleport gagal ("..tostring(result)..") → retry...")
@@ -222,15 +105,20 @@ TeleportService.TeleportInitFailed:Connect(function(player, result, errorMessage
     end
 end)
 
-------------------------------
--- MAIN LOOP
-------------------------------
-CreateNotifyGui()
-
-while task.wait(5) do
-    local success = FarmChests()
-    task.wait(2)
-    if not success then
-        TPReturner() -- tidak ada break, biar selalu lanjut
+---------------------------------------------------------------------
+-- 🟢 Main Loop
+task.spawn(function()
+    while task.wait(2) do
+        for _, chest in ipairs(workspace:GetDescendants()) do
+            if chest:IsA("Model") and chest.Name:lower():find("chest") then
+                Notify("➡️ Menuju chest: "..chest.Name)
+                if OpenChest(chest) then
+                    task.wait(1)
+                    CollectDrops() -- ambil diamond / item setelah chest terbuka
+                    task.wait(1)
+                    TPReturner() -- hop ke server lain
+                end
+            end
+        end
     end
-end
+end)
