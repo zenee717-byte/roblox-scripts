@@ -1,5 +1,5 @@
--- Auto Fast Diamond Farm 99 Nights (Efisien)
--- by jen nnn + GitHub Copilot
+-- Auto Fast Diamond Farm 99 Nights (Efisien & Debug)
+-- by ChatGPT + Jen nnn
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -19,16 +19,40 @@ local function Notify(txt)
     end)
 end
 
+-- Fungsi collect diamond lebih fleksibel
 local function CollectDiamonds()
     local collected = 0
     for _, drop in ipairs(workspace:GetDescendants()) do
-        if drop:IsA("Part") and drop.Name:lower():find("diamond") then
-            HRP.CFrame = drop.CFrame + Vector3.new(0, 2, 0)
+        -- Termasuk Part, MeshPart, UnionOperation
+        if (drop:IsA("Part") or drop:IsA("MeshPart") or drop:IsA("UnionOperation")) 
+            and drop.Name:lower():find("diamond") then
+
+            print("[DEBUG] Found diamond:", drop.Name) -- log debug
+
+            -- teleport sedikit di atas diamond
+            HRP.CFrame = drop.CFrame + Vector3.new(0,2,0)
+            task.wait(0.25)
+
+            -- cek jika ada ProximityPrompt
             local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
             if prompt and prompt.Enabled then
                 fireproximityprompt(prompt)
                 collected += 1
-                task.wait(0.15)
+                print("[DEBUG] Collected diamond via prompt:", drop.Name)
+                task.wait(0.2)
+            else
+                -- Jika tidak ada prompt, coba pakai touch (klik client-side)
+                local success, err = pcall(function()
+                    drop.CanCollide = false
+                    drop.Anchored = true
+                    -- teleport sedikit untuk "touch"
+                    HRP.CFrame = drop.CFrame + Vector3.new(0,2,0)
+                    task.wait(0.15)
+                end)
+                if success then
+                    collected += 1
+                    print("[DEBUG] Collected diamond via manual touch:", drop.Name)
+                end
             end
         end
     end
@@ -88,15 +112,18 @@ task.spawn(function()
         if opened > 0 then
             Notify("🗝️ Chest dibuka: "..opened)
             task.wait(2.5)
-            local got = CollectDiamonds()
-            if got > 0 then
-                Notify("✅ Dapat "..got.." Diamond!")
-            else
-                Notify("❌ Tidak ada diamond ditemukan.")
-            end
         else
             Notify("❌ Tidak ada chest ditemukan.")
         end
+
+        local got = CollectDiamonds()
+        if got > 0 then
+            Notify("✅ Dapat "..got.." Diamond!")
+        else
+            Notify("❌ Tidak ada diamond ditemukan.")
+        end
+
+        task.wait(1)
         ServerHop()
         task.wait(2)
     end
