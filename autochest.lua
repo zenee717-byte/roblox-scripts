@@ -1,101 +1,106 @@
---// Services
+--// Auto Diamond Farm 99 Nights in the Forest
+--// by jen nnn (modded version)
+
 local Players = game:GetService("Players")
-local Http = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local HRP = Character:WaitForChild("HumanoidRootPart")
-
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
 local PlaceID = game.PlaceId
 
---// GUI Scanner
-local ScreenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-ScreenGui.Name = "DiamondScanner"
+-- Notif helper
+local function Notify(txt)
+    pcall(function()
+        game.StarterGui:SetCore("SendNotification", {
+            Title = "💎 Diamond Farm",
+            Text = txt,
+            Duration = 4
+        })
+    end)
+end
 
-local InfoLabel = Instance.new("TextLabel", ScreenGui)
-InfoLabel.Size = UDim2.new(0, 400, 0, 300)
-InfoLabel.Position = UDim2.new(0, 20, 0, 200)
-InfoLabel.BackgroundTransparency = 0.3
-InfoLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-InfoLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-InfoLabel.Font = Enum.Font.Code
-InfoLabel.TextSize = 16
-InfoLabel.TextXAlignment = Enum.TextXAlignment.Left
-InfoLabel.TextYAlignment = Enum.TextYAlignment.Top
-InfoLabel.Text = "Scanning..."
-
---// Fungsi ambil drops
-local function collectDrops()
-    for _, v in pairs(workspace.Items:GetChildren()) do
-        if v:IsA("Part") or v:IsA("MeshPart") then
-            local n = v.Name:lower()
-            if n:find("diamond") or n:find("gem") or n:find("emerald") then
-                HRP.CFrame = v.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.3)
+-- Ambil diamond di sekitar
+local function CollectDiamonds()
+    for _, drop in pairs(workspace:GetDescendants()) do
+        if drop:IsA("Part") and drop.Name:lower():find("diamond") then
+            HRP.CFrame = drop.CFrame + Vector3.new(0, 3, 0)
+            local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
+            if prompt then
+                fireproximityprompt(prompt)
             end
+            task.wait(0.2)
         end
     end
 end
 
---// Fungsi buka chest
-local function openChest(chest)
-    if chest and chest:FindFirstChild("ChestLid") then
-        HRP.CFrame = chest.ChestLid.CFrame + Vector3.new(0, 3, 0)
-        local prompt = chest.ChestLid:FindFirstChildWhichIsA("ProximityPrompt")
-        if prompt then
-            fireproximityprompt(prompt)
-            task.wait(2)
-            collectDrops()
-        end
-    end
-end
+-- Cari & buka semua chest
+local function OpenAllChests()
+    local chestFound = false
+    for _, chest in pairs(workspace:GetDescendants()) do
+        if chest:IsA("Model") and chest.Name:lower():find("chest") then
+            local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
+            local pivot = chest.PrimaryPart or chest:FindFirstChild("ChestLid")
 
---// Fungsi serverhop
-local function serverHop()
-    local servers = {}
-    local req = game:HttpGet(string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100", PlaceID))
-    local data = Http:JSONDecode(req)
-    for _, s in pairs(data.data) do
-        if s.playing < s.maxPlayers and s.id ~= game.JobId then
-            table.insert(servers, s.id)
-        end
-    end
-    if #servers > 0 then
-        TeleportService:TeleportToPlaceInstance(PlaceID, servers[math.random(1, #servers)], LocalPlayer)
-    else
-        warn("Serverhop gagal.")
-    end
-end
-
---// Scanner update (UI list semua items)
-task.spawn(function()
-    while task.wait(2) do
-        local lines = {"[ SCANNER ] Found drops:"}
-        for _, v in pairs(workspace.Items:GetChildren()) do
-            if v:IsA("Part") or v:IsA("MeshPart") then
-                local dist = (HRP.Position - v.Position).Magnitude
-                table.insert(lines, string.format("%s  |  %.1f studs", v.Name, dist))
+            if prompt and pivot then
+                chestFound = true
+                -- Teleport ke chest
+                HRP.CFrame = pivot.CFrame + Vector3.new(0, 3, 0)
+                task.wait(0.5)
+                -- Buka
+                fireproximityprompt(prompt)
+                task.wait(1)
+                -- Ambil diamond setelah buka
+                CollectDiamonds()
             end
         end
-        InfoLabel.Text = table.concat(lines, "\n")
     end
-end)
+    return chestFound
+end
 
---// Main loop cari chest
-task.spawn(function()
-    while task.wait(5) do
-        local foundChest = nil
-        for _, v in pairs(workspace.Items:GetChildren()) do
-            if v.Name == "Item Chest" then
-                foundChest = v
-                break
+-- ServerHop fix anti 771
+local function ServerHop()
+    Notify("🔄 Cari server lain...")
+    local cursor = ""
+    local tried = 0
+
+    while tried < 5 do
+        tried += 1
+        local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100%s")
+            :format(PlaceID, cursor ~= "" and "&cursor="..cursor or "")
+
+        local ok, result = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+
+        if ok and result and result.data then
+            for _, v in pairs(result.data) do
+                if v.playing < v.maxPlayers and v.id ~= game.JobId then
+                    Notify("➡️ Pindah server...")
+                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
+                    return
+                end
             end
-        end
-
-        if foundChest then
-            openChest(foundChest)
+            cursor = result.nextPageCursor or ""
         else
-            serverHop()
+            cursor = ""
+        end
+        task.wait(2)
+    end
+
+    Notify("⚠️ Gagal cari server, retry...")
+    task.wait(5)
+    ServerHop()
+end
+
+-- Main loop
+task.spawn(function()
+    while task.wait(3) do
+        local found = OpenAllChests()
+        if not found then
+            ServerHop()
         end
     end
 end)
+
+Notify("✅ Diamond Farm Aktif")
