@@ -1,41 +1,67 @@
--- Auto Scanner GUI buat deteksi Chest & Diamond
+--// Services
 local Players = game:GetService("Players")
+local Http = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+
 local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HRP = Character:WaitForChild("HumanoidRootPart")
 
--- Buat ScreenGui
-local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
-gui.Name = "ScannerGUI"
+local PlaceID = game.PlaceId
 
-local label = Instance.new("TextLabel", gui)
-label.Size = UDim2.new(0, 400, 0, 100)
-label.Position = UDim2.new(0.5, -200, 0, 50)
-label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-label.BackgroundTransparency = 0.3
-label.TextColor3 = Color3.fromRGB(0, 255, 0)
-label.Font = Enum.Font.SourceSansBold
-label.TextSize = 20
-label.Text = "Scanning workspace..."
-label.TextWrapped = true
-
--- Fungsi update text
-local function updateText()
-    local found = {}
-    for _, v in pairs(workspace:GetDescendants()) do
-        if v:IsA("Model") or v:IsA("Part") or v:IsA("MeshPart") then
-            if v.Name:lower():find("chest") or v.Name:lower():find("diamond") then
-                table.insert(found, v:GetFullName())
+--// Ambil drop (diamond, emerald, gem)
+local function collectDrops()
+    for _, v in pairs(workspace.Items:GetChildren()) do
+        if v:IsA("Part") or v:IsA("MeshPart") then
+            local n = v.Name:lower()
+            if n:find("diamond") or n:find("gem") or n:find("emerald") then
+                HRP.CFrame = v.CFrame + Vector3.new(0, 3, 0)
+                task.wait(0.3)
             end
         end
     end
-    if #found > 0 then
-        label.Text = "Found Objects:\n" .. table.concat(found, "\n")
-    else
-        label.Text = "No Chest/Diamond found!"
+end
+
+--// Buka chest
+local function openChest(chest)
+    if chest and chest:FindFirstChild("ChestLid") then
+        HRP.CFrame = chest.ChestLid.CFrame + Vector3.new(0, 3, 0)
+        local prompt = chest.ChestLid:FindFirstChildWhichIsA("ProximityPrompt")
+        if prompt then
+            fireproximityprompt(prompt)
+            task.wait(2) -- tunggu chest kebuka
+            collectDrops()
+        end
     end
 end
 
--- Update tiap 3 detik
-while true do
-    updateText()
-    task.wait(3)
+--// Serverhop (pindah server acak)
+local function serverHop()
+    local servers = {}
+    local req = game:HttpGet(string.format("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100", PlaceID))
+    local data = Http:JSONDecode(req)
+    for _, s in pairs(data.data) do
+        if s.playing < s.maxPlayers and s.id ~= game.JobId then
+            table.insert(servers, s.id)
+        end
+    end
+    if #servers > 0 then
+        TeleportService:TeleportToPlaceInstance(PlaceID, servers[math.random(1, #servers)], LocalPlayer)
+    else
+        warn("Serverhop gagal, tidak ada server lain.")
+    end
+end
+
+--// Main loop
+while task.wait(5) do
+    local foundChest = false
+    for _, v in pairs(workspace.Items:GetChildren()) do
+        if v.Name == "Item Chest" then
+            foundChest = true
+            openChest(v)
+        end
+    end
+    if not foundChest then
+        serverHop()
+    end
 end
