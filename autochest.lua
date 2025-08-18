@@ -1,4 +1,4 @@
--- Services
+-- // Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -7,7 +7,7 @@ local Http = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceID = game.PlaceId
 
--- Variables
+-- // Variables
 local ScreenGui, TextLabel
 local DiamondCount = 0
 local AllIDs = {}
@@ -50,42 +50,48 @@ local function Notify(msg)
 end
 
 ------------------------------
+-- Fungsi Teleport Cepat
+------------------------------
+local function TeleportTo(pos)
+    if HRP then
+        HRP.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+    end
+end
+
+------------------------------
 -- Fungsi Ambil Diamond
 ------------------------------
 local function PickupDiamond(diamond)
     if not diamond then return false end
     local picked = false
 
-    -- ProximityPrompt
-    local prompt = diamond:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then
-        fireproximityprompt(prompt)
-        picked = true
-    end
-
-    -- TouchInterest
-    local touchPart = diamond:FindFirstChildWhichIsA("TouchTransmitter", true)
-    if touchPart then
-        firetouchinterest(HRP, diamond, 0)
-        firetouchinterest(HRP, diamond, 1)
-        picked = true
+    for _, v in ipairs(diamond:GetDescendants()) do
+        if v:IsA("ProximityPrompt") then
+            fireproximityprompt(v)
+            picked = true
+        elseif v:IsA("ClickDetector") then
+            fireclickdetector(v)
+            picked = true
+        elseif v:IsA("TouchTransmitter") then
+            firetouchinterest(HRP, diamond, 0)
+            firetouchinterest(HRP, diamond, 1)
+            picked = true
+        end
     end
 
     if picked then
         DiamondCount += 1
         Notify("💎 Diamond diambil! Total: " .. DiamondCount)
-    else
-        print("⚠️ Diamond ditemukan tapi tidak ada cara ambil (mungkin RemoteEvent).")
     end
 
     return picked
 end
 
 -- Auto-collect diamond spawn baru
-game.Workspace.ChildAdded:Connect(function(child)
-    if child.Name:lower():match("diamond") then
+workspace.DescendantAdded:Connect(function(obj)
+    if obj.Name:lower():match("diamond") then
         task.wait(0.2)
-        PickupDiamond(child)
+        PickupDiamond(obj)
     end
 end)
 
@@ -93,7 +99,7 @@ end)
 -- Fungsi buka chest
 ------------------------------
 local function OpenChest(chest)
-    for _, v in pairs(chest:GetDescendants()) do
+    for _, v in ipairs(chest:GetDescendants()) do
         if v:IsA("ClickDetector") then
             fireclickdetector(v)
             return true
@@ -110,46 +116,29 @@ end
 ------------------------------
 local function FarmChests()
     local anyDiamondFound = false
-
-    -- Ambil semua chest (diamond chest dulu, chest biasa nanti)
     local chests = {}
-    for _, chest in pairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and chest.PrimaryPart then
-            if string.find(chest.Name:lower(), "diamond") then
-                table.insert(chests, chest)
-            elseif string.find(chest.Name:lower(), "chest") then
-                table.insert(chests, chest)
-            end
+
+    for _, chest in ipairs(workspace:GetDescendants()) do
+        if chest:IsA("Model") and chest.PrimaryPart and chest.Name:lower():match("chest") then
+            table.insert(chests, chest)
         end
     end
 
     for _, chest in ipairs(chests) do
-        -- Pindah ke chest
-        Character:MoveTo(chest.PrimaryPart.Position)
-        task.wait(1.5)
-
-        -- Buka chest
+        TeleportTo(chest.PrimaryPart.Position)
+        task.wait(0.5)
         OpenChest(chest)
-        task.wait(1)
+        task.wait(0.5)
 
-        -- Ambil semua diamond yang dekat chest
-        local pickedCount = 0
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Part") or obj:IsA("MeshPart") then
-                if obj.Name:lower():match("diamond") then
-                    if (Character and HRP) then
-                        Character:MoveTo(obj.Position)
-                        task.wait(0.3)
-                        if PickupDiamond(obj) then
-                            pickedCount += 1
-                        end
-                    end
+        -- cari diamond dekat chest
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Name:lower():match("diamond") then
+                TeleportTo(obj.Position)
+                task.wait(0.2)
+                if PickupDiamond(obj) then
+                    anyDiamondFound = true
                 end
             end
-        end
-
-        if pickedCount > 0 then
-            anyDiamondFound = true
         end
     end
 
@@ -176,11 +165,10 @@ local function TPReturner()
         local foundServer = false
 
         if Servers.data then
-            for _, v in pairs(Servers.data) do
-                -- Cek server valid sebelum teleport
+            for _, v in ipairs(Servers.data) do
                 if tonumber(v.playing) < v.maxPlayers and v.id ~= game.JobId then
                     local already = false
-                    for _, existing in pairs(AllIDs) do
+                    for _, existing in ipairs(AllIDs) do
                         if v.id == tostring(existing) then
                             already = true
                             break
@@ -188,20 +176,16 @@ local function TPReturner()
                     end
                     if not already then
                         table.insert(AllIDs, v.id)
-                        Notify("🔄 Mencoba teleport ke server baru: "..v.id)
-                        -- teleport aman, server sudah pasti tidak penuh
+                        Notify("🔄 Teleport ke server baru: "..v.id)
                         local success, err = pcall(function()
                             TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
                         end)
                         if success then
-                            foundServer = true
-                            return -- berhenti script lokal karena teleport jalan
+                            return
                         else
                             Notify("❌ Gagal teleport: "..err.." → mencoba server lain...")
                         end
                     end
-                else
-                    Notify("⚠️ Server "..v.id.." penuh atau sama dengan server sekarang, mencari server lain...")
                 end
             end
         end
@@ -211,15 +195,13 @@ local function TPReturner()
             foundAnything = Servers.nextPageCursor
         else
             foundAnything = ""
-        end
-
-        -- Jika tidak ada server valid, tunggu 2 detik dan refresh list
-        if not foundServer then
-            Notify("⚠️ Semua server penuh atau sudah dikunjungi, tunggu 2 detik dan coba lagi...")
-            task.wait(2)
-        else
+            -- fallback teleport ke server random
+            Notify("⚠️ Semua server penuh → teleport random...")
+            TeleportService:Teleport(PlaceID, LocalPlayer)
             break
         end
+
+        task.wait(2)
     end
 end
 
@@ -233,6 +215,6 @@ while task.wait(5) do
     task.wait(2)
     if not success then
         TPReturner()
-        break -- hentikan loop saat teleport
+        break
     end
 end
