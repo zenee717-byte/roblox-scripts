@@ -1,4 +1,4 @@
---// Auto Fast Diamond Farm 99 Nights (Efisien)
+-- Auto Fast Diamond Farm 99 Nights (Efisien)
 -- by jen nnn + GitHub Copilot
 
 local Players = game:GetService("Players")
@@ -9,7 +9,6 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceID = game.PlaceId
 
--- UI Notif
 local function Notify(txt)
     pcall(function()
         game.StarterGui:SetCore("SendNotification", {
@@ -20,7 +19,6 @@ local function Notify(txt)
     end)
 end
 
--- Ambil diamond drop
 local function CollectDiamonds()
     local collected = 0
     for _, drop in ipairs(workspace:GetDescendants()) do
@@ -37,7 +35,6 @@ local function CollectDiamonds()
     return collected
 end
 
--- Buka semua chest
 local function OpenAllChests()
     local opened = 0
     for _, chest in ipairs(workspace:GetDescendants()) do
@@ -55,7 +52,6 @@ local function OpenAllChests()
     return opened
 end
 
--- ServerHop
 local function ServerHop()
     Notify("🔄 ServerHop...")
     local cursor = ""
@@ -86,7 +82,6 @@ local function ServerHop()
     ServerHop()
 end
 
--- Main loop
 task.spawn(function()
     while true do
         local opened = OpenAllChests()
@@ -102,7 +97,6 @@ task.spawn(function()
         else
             Notify("❌ Tidak ada chest ditemukan.")
         end
-        -- Hop jika sudah tidak ada chest/diamond
         ServerHop()
         task.wait(2)
     end
