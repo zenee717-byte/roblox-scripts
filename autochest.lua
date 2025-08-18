@@ -1,4 +1,4 @@
--- Auto Fast Diamond Farm 99 Nights (Efisien & Debug)
+-- Fast Diamond Farm 99 Nights (Efisien & Multi-Method)
 -- by ChatGPT + Jen nnn
 
 local Players = game:GetService("Players")
@@ -19,69 +19,96 @@ local function Notify(txt)
     end)
 end
 
--- Fungsi collect diamond lebih fleksibel
+-- 🔑 Collect Diamonds (all-in-one solution)
 local function CollectDiamonds()
     local collected = 0
     for _, drop in ipairs(workspace:GetDescendants()) do
-        -- Termasuk Part, MeshPart, UnionOperation
-        if (drop:IsA("Part") or drop:IsA("MeshPart") or drop:IsA("UnionOperation")) 
-            and drop.Name:lower():find("diamond") then
+        if drop:IsA("BasePart") and (drop.Name:lower():find("diamond") or drop.Name:lower():find("gem") or drop.Name:lower():find("crystal")) then
+            print("💎 Found diamond:", drop, "Class:", drop.ClassName)
 
-            print("[DEBUG] Found diamond:", drop.Name) -- log debug
+            HRP.CFrame = drop.CFrame + Vector3.new(0, 2, 0)
+            task.wait(0.2)
 
-            -- teleport sedikit di atas diamond
-            HRP.CFrame = drop.CFrame + Vector3.new(0,2,0)
-            task.wait(0.25)
+            local success = false
 
-            -- cek jika ada ProximityPrompt
-            local prompt = drop:FindFirstChildOfClass("ProximityPrompt")
+            -- 1️⃣ ProximityPrompt
+            local prompt = drop:FindFirstChildWhichIsA("ProximityPrompt", true)
             if prompt and prompt.Enabled then
                 fireproximityprompt(prompt)
                 collected += 1
-                print("[DEBUG] Collected diamond via prompt:", drop.Name)
-                task.wait(0.2)
-            else
-                -- Jika tidak ada prompt, coba pakai touch (klik client-side)
-                local success, err = pcall(function()
-                    drop.CanCollide = false
-                    drop.Anchored = true
-                    -- teleport sedikit untuk "touch"
-                    HRP.CFrame = drop.CFrame + Vector3.new(0,2,0)
-                    task.wait(0.15)
-                end)
-                if success then
+                success = true
+                print("✅ Collected via ProximityPrompt:", drop.Name)
+                task.wait(0.3)
+            end
+
+            -- 2️⃣ Touch
+            if not success then
+                local ti = drop:FindFirstChildOfClass("TouchTransmitter") or drop:FindFirstChild("TouchInterest")
+                if ti then
+                    for i = 1, 3 do
+                        HRP.CFrame = drop.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.15)
+                    end
                     collected += 1
-                    print("[DEBUG] Collected diamond via manual touch:", drop.Name)
+                    success = true
+                    print("✅ Collected via Touch:", drop.Name)
                 end
+            end
+
+            -- 3️⃣ RemoteEvent / RemoteFunction
+            if not success then
+                for _, child in ipairs(drop:GetDescendants()) do
+                    if child:IsA("RemoteEvent") then
+                        child:FireServer(drop)
+                        collected += 1
+                        success = true
+                        print("✅ Collected via RemoteEvent:", child.Name)
+                        break
+                    elseif child:IsA("RemoteFunction") then
+                        pcall(function()
+                            child:InvokeServer(drop)
+                            collected += 1
+                            success = true
+                            print("✅ Collected via RemoteFunction:", child.Name)
+                        end)
+                        break
+                    end
+                end
+            end
+
+            if not success then
+                print("⚠️ Tidak bisa ambil diamond:", drop.Name)
             end
         end
     end
     return collected
 end
 
+-- 🔑 Open Chests
 local function OpenAllChests()
     local opened = 0
     for _, chest in ipairs(workspace:GetDescendants()) do
         if chest:IsA("Model") and chest.Name:lower():find("chest") then
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
-            if prompt and chest.PrimaryPart and prompt.Enabled then
-                HRP.CFrame = chest.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+            local part = chest.PrimaryPart or chest:FindFirstChildWhichIsA("BasePart")
+            if prompt and part and prompt.Enabled then
+                HRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
                 task.wait(0.2)
                 fireproximityprompt(prompt)
                 opened += 1
-                task.wait(0.4)
+                print("🗝️ Chest dibuka:", chest.Name)
+                task.wait(0.5)
             end
         end
     end
     return opened
 end
 
+-- 🔑 ServerHop
 local function ServerHop()
     Notify("🔄 ServerHop...")
     local cursor = ""
-    local tried = 0
-    while tried < 5 do
-        tried += 1
+    for tried = 1, 5 do
         local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100%s")
             :format(PlaceID, cursor ~= "" and "&cursor="..cursor or "")
         local ok, result = pcall(function()
@@ -101,17 +128,16 @@ local function ServerHop()
         end
         task.wait(1)
     end
-    Notify("⚠️ Retry ServerHop...")
-    task.wait(3)
-    ServerHop()
+    Notify("⚠️ Tidak dapat server, coba lagi nanti...")
 end
 
+-- 🔄 Main Loop
 task.spawn(function()
     while true do
         local opened = OpenAllChests()
         if opened > 0 then
             Notify("🗝️ Chest dibuka: "..opened)
-            task.wait(2.5)
+            task.wait(2) -- beri waktu diamond spawn
         else
             Notify("❌ Tidak ada chest ditemukan.")
         end
