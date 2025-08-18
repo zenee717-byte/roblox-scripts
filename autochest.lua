@@ -1,4 +1,4 @@
---// Auto Fast Diamond Farm 99 Nights
+--// Auto Fast Diamond Farm 99 Nights (Efisien)
 -- by jen nnn + GPT5
 
 local Players = game:GetService("Players")
@@ -9,7 +9,7 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local PlaceID = game.PlaceId
 
--- Notif helper
+-- UI Notif
 local function Notify(txt)
     pcall(function()
         game.StarterGui:SetCore("SendNotification", {
@@ -22,6 +22,7 @@ end
 
 -- Ambil diamond drop
 local function CollectDiamonds()
+    local collected = 0
     for _, drop in pairs(workspace:GetDescendants()) do
         if drop:IsA("Part") and drop.Name:lower():find("diamond") then
             HRP.CFrame = drop.CFrame + Vector3.new(0, 2, 0)
@@ -29,27 +30,27 @@ local function CollectDiamonds()
             if prompt then
                 fireproximityprompt(prompt)
             end
-            task.wait(0.1) -- super cepat
+            collected += 1
+            task.wait(0.1)
         end
     end
+    return collected
 end
 
--- Buka semua chest (chest biasa + stronghold unlocked)
+-- Buka semua chest
 local function OpenAllChests()
     local opened = 0
     for _, chest in pairs(workspace:GetDescendants()) do
         if chest:IsA("Model") and chest.Name:lower():find("chest") then
             local prompt = chest:FindFirstChildWhichIsA("ProximityPrompt", true)
             if prompt and chest.PrimaryPart and prompt.Enabled then
-                -- Teleport cepat ke chest
+                -- Teleport ke chest
                 HRP.CFrame = chest.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
-                task.wait(0.2) -- lebih singkat
+                task.wait(0.2)
                 -- Buka chest
                 fireproximityprompt(prompt)
-                task.wait(0.5) -- langsung lanjut
-                -- Ambil diamond
-                CollectDiamonds()
                 opened += 1
+                task.wait(0.5)
             end
         end
     end
@@ -91,13 +92,17 @@ end
 task.spawn(function()
     while task.wait(1) do
         local opened = OpenAllChests()
-        -- Kalau ga ada chest terbuka → hop
-        if opened == 0 then
-            ServerHop()
-        else
-            ServerHop()
+        if opened > 0 then
+            -- Tunggu diamond spawn
+            task.wait(2.5)
+            local got = CollectDiamonds()
+            if got > 0 then
+                Notify("✅ Dapat "..got.." Diamond!")
+            end
         end
+        -- Hop setelah semua dicek
+        ServerHop()
     end
 end)
 
-Notify("✅ Fast Diamond Farm Aktif")
+Notify("🚀 Fast Diamond Farm Aktif")
