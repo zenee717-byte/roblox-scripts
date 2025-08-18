@@ -1,101 +1,41 @@
---// Auto Diamond Farm 99 Nights in the Forest
---// by jen nnn
-
+-- Auto Scanner GUI buat deteksi Chest & Diamond
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local HRP = Character:WaitForChild("HumanoidRootPart")
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local PlaceID = game.PlaceId
 
--- Notif helper
-local function Notify(txt)
-    game.StarterGui:SetCore("SendNotification", {
-        Title = "💎 Diamond Farm",
-        Text = txt,
-        Duration = 4
-    })
-end
+-- Buat ScreenGui
+local gui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+gui.Name = "ScannerGUI"
 
--- Ambil diamond di sekitar
-local function CollectDiamonds()
-    for _, drop in pairs(workspace:GetDescendants()) do
-        if drop:IsA("Part") and drop.Name:lower():find("diamond") then
-            HRP.CFrame = drop.CFrame + Vector3.new(0, 2, 0)
-            fireproximityprompt(drop:FindFirstChildOfClass("ProximityPrompt"))
-            task.wait(0.2)
-        end
-    end
-end
+local label = Instance.new("TextLabel", gui)
+label.Size = UDim2.new(0, 400, 0, 100)
+label.Position = UDim2.new(0.5, -200, 0, 50)
+label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+label.BackgroundTransparency = 0.3
+label.TextColor3 = Color3.fromRGB(0, 255, 0)
+label.Font = Enum.Font.SourceSansBold
+label.TextSize = 20
+label.Text = "Scanning workspace..."
+label.TextWrapped = true
 
--- Buka chest yang ada diamond
-local function SearchChest()
-    for _, chest in pairs(workspace:GetDescendants()) do
-        if chest:IsA("Model") and chest.Name:lower():find("chest") then
-            if chest:FindFirstChildWhichIsA("ProximityPrompt") then
-                -- Teleport ke chest
-                HRP.CFrame = chest.PrimaryPart and chest.PrimaryPart.CFrame + Vector3.new(0,3,0) or chest:GetModelCFrame()
-                task.wait(0.5)
-                -- Buka
-                fireproximityprompt(chest:FindFirstChildWhichIsA("ProximityPrompt"))
-                task.wait(1)
-                -- Ambil diamond kalau drop
-                CollectDiamonds()
-                return true
+-- Fungsi update text
+local function updateText()
+    local found = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Model") or v:IsA("Part") or v:IsA("MeshPart") then
+            if v.Name:lower():find("chest") or v.Name:lower():find("diamond") then
+                table.insert(found, v:GetFullName())
             end
         end
     end
-    return false
-end
-
--- ServerHop fix anti 771
-local function ServerHop()
-    Notify("🔄 Cari server lain...")
-    local cursor = ""
-    local success = false
-    local tried = 0
-
-    while not success and tried < 5 do
-        tried += 1
-        local url = ("https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100%s")
-            :format(PlaceID, cursor ~= "" and "&cursor="..cursor or "")
-
-        local ok, result = pcall(function()
-            return HttpService:JSONDecode(game:HttpGet(url))
-        end)
-
-        if ok and result and result.data then
-            for _, v in pairs(result.data) do
-                if v.playing < v.maxPlayers and v.id ~= game.JobId then
-                    success = true
-                    Notify("➡️ Pindah server...")
-                    TeleportService:TeleportToPlaceInstance(PlaceID, v.id, LocalPlayer)
-                    break
-                end
-            end
-            cursor = result.nextPageCursor or ""
-        else
-            cursor = ""
-        end
-        task.wait(2)
-    end
-
-    if not success then
-        Notify("⚠️ Gagal cari server, retry...")
-        task.wait(5)
-        ServerHop()
+    if #found > 0 then
+        label.Text = "Found Objects:\n" .. table.concat(found, "\n")
+    else
+        label.Text = "No Chest/Diamond found!"
     end
 end
 
--- Main loop
-task.spawn(function()
-    while task.wait(2) do
-        local found = SearchChest()
-        if not found then
-            ServerHop()
-        end
-    end
-end)
-
-Notify("✅ Diamond Farm Aktif")
+-- Update tiap 3 detik
+while true do
+    updateText()
+    task.wait(3)
+end
