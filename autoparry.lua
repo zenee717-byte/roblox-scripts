@@ -1,72 +1,46 @@
--- OP Auto Parry Blade Ball + Toggle Keybind
+-- Auto Detect Auto Parry Blade Ball
 -- by ChatGPT
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local HRP = Character:WaitForChild("HumanoidRootPart")
 
--- Remote parry (cek sesuai game)
-local ParryRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Parry")
-
--- settings
-local ReactionTime = 0.05   -- delay reaksi
-local PredictDistance = 50  -- radius deteksi bola
-local SafeZone = 10         -- jarak aman untuk parry
-local ToggleKey = Enum.KeyCode.P
-
--- state
-local AutoParryEnabled = true
-
--- fungsi parry
-local function DoParry()
-    if not AutoParryEnabled then return end
-    task.delay(ReactionTime, function()
-        pcall(function()
-            ParryRemote:FireServer()
-            print("[DEBUG] Auto Parry Executed!")
-        end)
-    end)
-end
-
--- cek bola menuju ke kita atau tidak
-local function IsBallComing(ball)
-    if not (ball and ball:IsA("BasePart")) then return false end
-    local velocity = ball.AssemblyLinearVelocity
-    if velocity.Magnitude < 1 then return false end
-    local direction = (HRP.Position - ball.Position).Unit
-    local dot = velocity.Unit:Dot(direction)
-    return dot > 0.7 -- makin dekat ke 1 makin lurus ke kita
-end
-
--- toggle dengan key
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == ToggleKey then
-        AutoParryEnabled = not AutoParryEnabled
-        warn("⚡ Auto Parry: " .. (AutoParryEnabled and "ON ✅" or "OFF ❌"))
+-- cari remote otomatis
+local ParryRemote
+for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+    if obj:IsA("RemoteEvent") and string.lower(obj.Name):find("parry") or string.lower(obj.Name):find("block") then
+        ParryRemote = obj
+        warn("[AUTO DETECT] Ketemu Remote Parry:", obj.Name)
+        break
     end
-end)
+end
 
--- loop cek bola
-RunService.Heartbeat:Connect(function()
-    if not AutoParryEnabled then return end
-    pcall(function()
-        for _, ball in ipairs(workspace:GetDescendants()) do
-            if ball:IsA("BasePart") and ball.Name:lower():find("ball") then
-                local dist = (ball.Position - HRP.Position).Magnitude
-                if dist <= PredictDistance and IsBallComing(ball) then
-                    if dist <= SafeZone then
-                        DoParry()
-                    end
-                end
+-- kalau ga ketemu
+if not ParryRemote then
+    warn("[AUTO DETECT] Gagal cari Remote! Coba pencet tombol F sekali biar muncul di ReplicatedStorage.")
+end
+
+-- fungsi utama auto parry
+local function autoParry()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local HRP = char:WaitForChild("HumanoidRootPart")
+
+    for _, obj in pairs(workspace:GetChildren()) do
+        if obj.Name == "Ball" and obj:IsA("BasePart") then
+            local dist = (obj.Position - HRP.Position).Magnitude
+            if dist < 40 then -- jarak parry
+                pcall(function()
+                    ParryRemote:FireServer()
+                end)
             end
         end
-    end)
-end)
+    end
+end
 
-print("⚡ OP Auto Parry Aktif! Tekan [P] untuk ON/OFF toggle")
+-- loop
+RunService.Heartbeat:Connect(function()
+    if ParryRemote then
+        autoParry()
+    end
+end)
