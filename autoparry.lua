@@ -1,30 +1,50 @@
--- ⚡ Auto Parry pake Remote Ball Location
+-- Auto Parry Prediksi Bola
+-- Fokus hanya parry timing
 
+-- Ambil services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local HRP = Character:WaitForChild("HumanoidRootPart")
+local RS = game:GetService("ReplicatedStorage")
 
-local ParryRemote = ReplicatedStorage.Remotes.ParryButtonPress
-local ReportBallLocation = ReplicatedStorage.Remotes.ReportBallLocation
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local hrp = char:WaitForChild("HumanoidRootPart")
 
--- setting
-local TriggerDist = 10   -- jarak parry ideal
+-- Remote untuk parry
+local ParryRemote = RS:WaitForChild("Remotes"):WaitForChild("ParryButtonPress")
 
--- pantau update bola lewat remote
-ReportBallLocation.OnClientEvent:Connect(function(ball, position, velocity)
-    if not HRP or not ball or not velocity then return end
+-- Config
+local CHECK_INTERVAL = 0.05 -- seberapa sering cek bola
+local PARRY_DISTANCE = 20   -- jarak trigger parry (studs)
 
-    local dist = (position - HRP.Position).Magnitude
-    if dist <= TriggerDist then
-        local dirToPlayer = (HRP.Position - position).Unit
-        local dot = dirToPlayer:Dot(velocity.Unit)
+-- Fungsi parry
+local function doParry()
+    ParryRemote:FireServer()
+    print("🔥 Auto Parry Triggered!")
+end
 
-        if dot > 0.75 then
-            -- bola ke arah player
-            ParryRemote:FireServer()
-            warn("⚡ PERFECT PARRY from Remote!")
+-- Loop pengecekan bola
+task.spawn(function()
+    while task.wait(CHECK_INTERVAL) do
+        -- Pastikan character ada
+        if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+            continue
+        end
+        hrp = player.Character.HumanoidRootPart
+
+        -- Cari bola di Workspace
+        local ballsFolder = workspace:FindFirstChild("Balls")
+        if ballsFolder then
+            for _, ball in ipairs(ballsFolder:GetChildren()) do
+                if ball:IsA("BasePart") then
+                    -- Hitung jarak
+                    local dist = (ball.Position - hrp.Position).Magnitude
+
+                    if dist <= PARRY_DISTANCE then
+                        -- Kalau bola deket → parry
+                        doParry()
+                    end
+                end
+            end
         end
     end
 end)
