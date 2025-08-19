@@ -1,12 +1,14 @@
--- Remote Sniffer untuk cari RemoteEvent Parry
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- Sniffer: cari semua RemoteEvent / RemoteFunction yang dipanggil dari client
+local mt = getrawmetatable(game)
+local old = mt.__namecall
+setreadonly(mt, false)
 
-for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-    if obj:IsA("RemoteEvent") then
-        obj.OnClientEvent:Connect(function(...)
-            print("[Sniffer] Remote dipanggil:", obj.Name, ...)
-        end)
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    if method == "FireServer" or method == "InvokeServer" then
+        warn("[Sniffer] Remote:", self.Name, "Method:", method, "Args:", ...)
     end
-end
+    return old(self, ...)
+end)
 
-print("✅ Sniffer aktif! Tekan tombol F (block) di game untuk lihat nama Remote di console Delta.")
+print("✅ Remote Sniffer aktif! Tekan block/parry sekali buat lihat nama remote di console.")
