@@ -1,14 +1,14 @@
--- Sniffer: cari semua RemoteEvent / RemoteFunction yang dipanggil dari client
-local mt = getrawmetatable(game)
-local old = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    if method == "FireServer" or method == "InvokeServer" then
-        warn("[Sniffer] Remote:", self.Name, "Method:", method, "Args:", ...)
+-- Universal Remote Sniffer (Delta Compatible)
+for _, v in pairs(getgc(true)) do
+    if typeof(v) == "function" and islclosure(v) and not is_synapse_function(v) then
+        local info = debug.getinfo(v)
+        if info.name == "FireServer" or info.name == "InvokeServer" then
+            hookfunction(v, function(...)
+                print("[Sniffer GC]", info.name, ...)
+                return v(...)
+            end)
+        end
     end
-    return old(self, ...)
-end)
+end
 
-print("✅ Remote Sniffer aktif! Tekan block/parry sekali buat lihat nama remote di console.")
+print("✅ Universal Remote Sniffer aktif! Coba parry manual.")
